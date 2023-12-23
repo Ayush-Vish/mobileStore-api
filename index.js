@@ -3,7 +3,8 @@ const mongoose = require('mongoose');
 const app = express();
 const morgan = require('morgan');
 const cors= require('cors');
-const dotenv= require("dotenv")
+const dotenv= require("dotenv");
+const { errorMiddleware } = require('./error.middleware');
 dotenv.config();
 
 app.use(express.json());
@@ -15,7 +16,7 @@ app.use(cors({
 
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('Connected to MongoDB...'))
-    .catch(err => console.error('Could not connect to MongoDB...', err));
+    .catch(err => console.error('Could not connect to MongoDB...', err.message));
 
 const mobileSchema = new mongoose.Schema({
     name: String,
@@ -24,7 +25,8 @@ const mobileSchema = new mongoose.Schema({
     memory: Number,
     OS: String,
     price: Number, 
-    image: [String]
+    image: [String], 
+
 });
 
 
@@ -34,14 +36,13 @@ app.get('/api/mobiles', async (req, res) => {
     try {
         
         let mobiles = await Mobile.find({});
-        console.log(req.query)
         const { name, type, processor, memory, OS, price } = req.query;
         if (name) mobiles = mobiles.filter(m => m.name.split(" ")[0] === name);
         if (type) mobiles = mobiles.filter(m => m.type === type);
         if (processor) mobiles = mobiles.filter(m => m.processor === processor);
         if (memory) mobiles = mobiles.filter(m => m.memory === memory);
         if (OS) mobiles = mobiles.filter(m => m.OS === OS);
-        if (price) mobiles = mobiles.filter(m => m.price === price);
+        if (price) mobiles = mobiles.filter(m => m.price >= price.split("-")[0] && m.price <= price.split("-")[1]);
         return res.status(200).json({
             status: 'success',
             results: mobiles.length,
@@ -63,7 +64,6 @@ app.post('/api/mobiles/bulk', async (req, res) => {
     if(!mobiles) {
         return res.status(400).send('Please provide mobiles');
     }
-    console.log(mobiles);
     for(let mobile of mobiles) {
         if(!mobile.name || !mobile.type || !mobile.processor || !mobile.memory || !mobile.OS || !mobile.price || !mobile.image) {
             return res.status(400).send('Please fill all the fields for each mobile');
@@ -79,9 +79,9 @@ app.post('/api/mobiles/bulk', async (req, res) => {
 });
 
 
-    
 
-app.delete('/api/mobiles/:id', async (req, res) => {
+
+app.get('/api/mobiles/:id', async (req, res) => {
     if(!req.params.id) {
         return res.status(400).json({
             success: false ,
@@ -89,7 +89,7 @@ app.delete('/api/mobiles/:id', async (req, res) => {
         
         })
     }
-    const mobile = await Mobile.findByIdAndRemove(req.params.id);
+    const mobile = await Mobile.findById(req.params.id);
     if (!mobile) return res.status(404).json({
         success: false ,
         message: 'The mobile with the given ID was not found.'
@@ -103,10 +103,43 @@ app.delete('/api/mobiles/:id', async (req, res) => {
     })
 });
 
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).send('Something broke!');
-});
+
+
+app.get("/search" , async (req ,res )  =>   {
+    try {
+        const { search } = req.query;
+        let mobiles;
+        if (search) {
+            mobiles = await Mobile.find({
+                $or: [
+                    { name: { $regex: search, $options: 'i' } },
+                    { type: { $regex: search, $options: 'i' } },
+                    { processor: { $regex: search, $options: 'i' } },
+                    { OS: { $regex: search, $options: 'i' } },
+                ]
+            });
+        } else {
+            mobiles = await Mobile.find({});
+        }
+        return res.status(200).json({
+            status: 'success',
+            results: mobiles.length,
+            data: {
+                mobiles
+            }
+        })
+    } catch (error) {
+        console.log(error);
+        return res.status(400).json({
+
+            success: false,
+            message: error.message
+        })
+    }
+})
+
+app.use("*" , errorMiddleware);
+
 
 const port = 3000;
 app.listen(port, () => console.log(`Listening on port ${port}...`));
