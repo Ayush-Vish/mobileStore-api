@@ -138,8 +138,12 @@ app.get("/search" , async (req ,res )  =>   {
     }
 })
 
-app.use("*" , errorMiddleware);
+app.use("*" , (req , res ) => {
+    res.send("404 not found")
+
+})
 
 
-const port = 3000;
+
+const port = process.env.PORT || 5000;
 app.listen(port, () => console.log(`Listening on port ${port}...`));
