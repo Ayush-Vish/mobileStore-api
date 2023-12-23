@@ -52,11 +52,14 @@ const Cart = mongoose.model("Cart", cartSchema);
 app.get("/api/mobiles", async (req, res) => {
   try {
     let mobiles = await Mobile.find({});
+
     const { name, type, processor, memory, OS, price } = req.query;
+    console.log(memory);
+
     if (name) mobiles = mobiles.filter((m) => m.name.split(" ")[0] === name);
     if (type) mobiles = mobiles.filter((m) => m.type === type);
     if (processor) mobiles = mobiles.filter((m) => m.processor === processor);
-    if (memory) mobiles = mobiles.filter((m) => m.memory === memory);
+    if (memory) mobiles = mobiles.filter((m) => m.memory == memory);
     if (OS) mobiles = mobiles.filter((m) => m.OS === OS);
     if (price)
       mobiles = mobiles.filter(
